@@ -1,4 +1,4 @@
-name: Cars CRUD Tests
+name: Cars CRUD - Test and Publish
 
 on:
   pull_request:
@@ -11,9 +11,10 @@ permissions:
 
 jobs:
   tests:
+    name: Run application tests
     runs-on: ubuntu-latest
     steps:
-      - name: Download the repository
+      - name: Check out repository
         uses: actions/checkout@v7
 
       - name: Set up Python
@@ -21,10 +22,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: python -m pip install -r requirements-dev.txt
+      - name: Install application and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
 
-      - name: Install Chromium and Linux dependencies
+      - name: Install Chromium for E2E tests
         run: python -m playwright install --with-deps chromium
 
       - name: Run unit tests
@@ -40,11 +43,12 @@ jobs:
         run: python -m pytest tests/e2e -q
 
   publish:
+    name: Build and publish Docker image
     needs: tests
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Download the repository
+      - name: Check out repository
         uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
@@ -56,9 +60,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push the image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
           context: .
+          file: ./Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/cars-crud:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/cars-crud:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/cars-crud:sha-${{ github.sha }}
